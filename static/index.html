@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>Desenvolvendo com python twisted</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="reveal.js/css/reveal.min.css">
+        <link rel="stylesheet" href="reveal.js/lib/css/zenburn.css">
+		<link rel="stylesheet" href="reveal.js/css/theme/sky.css" id="theme">
+
+	</head>
+
+	<body>
+
+      <!-- 
+           pallet 
+           3DDB7F
+           DBE50E
+           CE8F35
+           E54451
+           6982D9
+        -->
+      <div id="tweetcontent" style="text-align: center" class="widget">
+      </div>
+		<div class="reveal">
+
+			<div class="slides">
+
+				<section data-background="#3DDB7F">
+					<h2>Desenvolvendo com python <b>twisted</b></h2>
+					<p> <b>Rodrigo Vaz</b> <small>rodrigo.vaz@locaweb.com.br</small> </p>
+				</section>
+
+				<section data-background="#DBE50E" data-transition="linear">
+					<h2>Agenda</h2>
+					<p>
+                      <ul>
+                        <li>Reactor Pattern</li>
+                        <li><b>Twisted Reactor</b></li>
+                        <li>.. Deferred</li>
+                        <li><b>.. Callbacks</b></li>
+                        <li>.. Errbacks</li>
+                        <li><b>inlineCallback</b></li>
+                        <li>Twisted na locaweb</li>
+                        <li>Show me the code!</li>
+                      </ul>
+                    </p>
+				</section>
+
+                <section data-background="#CE8F35">
+					<h2>Ractor Pattern</h2>
+                    <p class="fragment roll-in">
+                      Era uma vez um <b>Reactor Loop (aka Main Loop)</b> que esperava por eventos...
+                    </p>
+                    <p class="fragment roll-in">
+                      E quando um evento chega o <b>Event Handler</b> trabalha enquanto o <b>Reactor Loop</b> espera por novos eventos.
+                    </p>
+                    <p class="fragment roll-in">
+                      E eles viveram felizes para sempre. fim.
+                    </p>
+				</section>
+
+                <section data-background="#E54451" data-transition="linear">
+				  <h2>Twisted Reactor</h2>
+                      <p> O twisted tem o seu reactor...</p>
+                      <pre>
+                        <code data-trim class="python">
+from twisted.internet import reactor
+reactor.callLater(5, reactor.stop)
+reactor.run()
+                        </code>
+                      </pre>
+				</section>
+                
+                <section data-background="#E54451" data-transition="linear">
+				  <h2>Twisted Reactor</h2>
+                      
+                      <p> Agendando uma execução com o reactor com callLater</p>
+                      
+                      <pre>
+                        <code data-trim class="python">
+from twisted.internet import reactor
+
+def pink(say):
+    print say
+    reactor.stop()
+
+reactor.callLater(
+    5, 
+    pink, 
+    "Gee, Brain, what do you want to do tonight?"
+)
+reactor.run()
+                        </code>
+                      </pre>
+				</section>
+
+                <section data-background="#6982D9">
+				  <h2>Deferred</h2>
+                      <p class="fragment roll-in"> <i>Deferreds</i> possuem uma sequencia de callbacks e errbacks</p>
+                      <p class="fragment roll-in"> <b>Callbacks</b> recebem como parametro o resultado da operação</p>
+                      <p class="fragment roll-in"> <b>Errbacks</b> recebem a falha da operação como parametro</p>
+				</section>
+
+                <section data-background="#6982D9" data-transition="linear">
+					<h2>Deferred</h2>
+                      <p class="fragment roll-in"> Callbacks que terminam com sucesso e retornam, iniciam o próximo callback da cadeia...</p>
+                      <p class="fragment roll-in"> ...se um callback falha o próximo errback é chamado</p>
+                      <p class="fragment roll-in"> E se esse errback não retorna uma falha, o proximo callback é chamado.</p>
+				</section>
+                
+                <section data-background="#6982D9">
+					<h2>Deferred</h2>
+                      <p><img src="/static/assets/deferred-process.png" style="max-height: 500px"></p>
+				</section>
+
+                <section data-background="#3DDB7F" data-transition="linear">
+				  <h2>Callbacks</h2>
+                      <pre>
+                        <code data-trim class="python" style="max-height: 500px">
+from twisted.internet import reactor, defer
+
+def brain(response):
+    print "Brain says: %s" % response
+    return "That's all folks"
+
+def end(last):
+    print last
+
+def pink(say):
+    print "Pink asks: %s" % say
+    d = defer.Deferred()
+    brain_say = "Try to take over the world!"
+    reactor.callLater(2, d.callback, brain_say)
+    return d
+
+p = pink("Gee, Brain, what do you want to do tonight?")
+p.addCallback(brain)
+p.addCallback(end)
+reactor.callLater(5, reactor.stop)
+reactor.run()
+                        </code>
+                      </pre> 
+				</section>
+
+                <section data-background="#DBE50E">
+					<h2>inlineCallbacks</h2>
+                    <p class="fragment roll-in"><b>Decorator</b> que usa o yield</p>
+                    <p class="fragment roll-in">...que retorna um Generator</p>
+                    <p class="fragment roll-in">...que ao receber o resultado</p>
+                    <p class="fragment roll-in">repassa para os callbacks subsequentes</p>
+                    <p class="fragment roll-in">twisted.internet.defer.inlineCallbacks</p>
+                </section>
+
+                <section data-background="#DBE50E">
+					<h2>inlineCallbacks</h2>
+                    <pre>
+                      <code data-trim class="python" style="max-height: 500px">
+from twisted.internet import reactor, defer
+                                                  
+@defer.inlineCallbacks
+def pink(say):
+    result = yield say
+    defer.returnValue(result)
+
+def brain(pink_saw):
+    print "Pink asks: %s" % pink_saw
+    return "Take over the world"
+
+def end(brain_replied):
+    print "Brain replies: %s" % brain_replied
+    print "That's all folks"
+
+d = pink("Gee, Brain, what do you want to do tonight?")
+d.addCallback(brain)
+d.addCallback(end)
+reactor.run()
+                      </code>
+                    </pre>
+				</section>
+                             
+                <section data-background="#DBE50E">
+					<h2>inlineCallbacks</h2>
+                    <p><img src="/static/assets/inline-callbacks1.png" style="max-height: 500px"></p>
+                </section>
+
+                <section data-background="#CE8F35">
+					<h2>Twisted na locaweb</h2>
+                    <p>
+                      <ul>
+                        <li>Bricklayer</li>
+                        <li>Leela</li>
+                        <li>Dracula</li>
+                        <li>Professor</li>
+                        <li>...YOUR PROJECT HERE...</li>
+                    </p>
+                </section>
+                
+                <section data-background="#E54451">
+					<h2>Da Code</h2>
+                    <p>
+                    ....
+                    </p>
+                </section>
+
+                 <section data-background="#E54451">
+					<h2>Thanks!</h2>
+                    <p>
+                    <img src="/static/assets/logo_locaweb.png"/>
+                    </p>
+                </section>
+
+			</div>
+		</div>
+        
+		<script src="reveal.js/lib/js/head.min.js"></script>
+		<script src="reveal.js/js/reveal.min.js"></script>
+		<script src="js/jquery.min.js"></script>
+
+		<script>
+
+          var socket = new WebSocket("ws://localhost:8888/tweetbox");
+          socket.onopen = function() {
+              console.log("socket opened");
+          };
+          
+          socket.onmessage = function(msg) {
+              $("#tweetcontent").html(msg.data);
+          };
+              
+          Reveal.initialize(
+          {
+              center: true,
+              transition: "zoom",
+              backgroundTransition: "slide",
+              dependencies: [
+                  { src: 'reveal.js/plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+              ]
+          });
+
+		</script>
+
+	</body>
+</html>
